@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">AR Depth Check</string>
+    <string name="camera_denied">Camera permission is required to run the AR Depth check.</string>
+</resources>
