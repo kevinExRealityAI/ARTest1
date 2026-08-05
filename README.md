@@ -9,6 +9,12 @@ It is part of the **Packing & Moving Survey** experiment. The goal is the *small
 software that measures accurately while keeping smooth AR performance — not a general-purpose
 scanner.
 
+<p align="center">
+  <img src="docs/screenshot-measurement.jpg" alt="Live measurement overlay: a cardboard box on a tiled floor with the accumulated depth point cloud shown as green dots and L/W/H plus confidence and coverage stats overlaid on top" width="320">
+</p>
+
+<p align="center"><em>Live overlay — accumulated depth point cloud (green) with L/W/H, confidence, and coverage stats.</em></p>
+
 ## How it works
 
 The pipeline is a chain of small, independently testable stages. Data flows once per processed
