@@ -31,6 +31,7 @@ data class DepthUiState(
     val stats: DepthStats? = null,
     val pointCount: Int = 0,
     val floorFound: Boolean = false,
+    val measurement: Measurement? = null,
 )
 
 /**
@@ -58,6 +59,9 @@ class DepthViewModel : ViewModel() {
     var cloudVersion = 0
         private set
     private val cameraPoseMatrix = FloatArray(16)
+
+    // Accumulates per-frame boxes into one stable measurement (temporal accumulator + smoothing).
+    private val stabilizer = MeasurementStabilizer()
 
     private val _uiState = MutableStateFlow(
         DepthUiState(DepthStatus.INITIALIZING, "Starting AR session…")
@@ -102,6 +106,8 @@ class DepthViewModel : ViewModel() {
         if (!depthSupported) return
 
         if (frame.camera.trackingState != TrackingState.TRACKING) {
+            // Pose is unreliable while tracking is lost, so any accumulated box would be corrupted.
+            stabilizer.reset()
             _uiState.value = DepthUiState(DepthStatus.TRACKING_PAUSED, "Move the phone slowly to start tracking…")
             return
         }
@@ -143,9 +149,32 @@ class DepthViewModel : ViewModel() {
                     )
                     cloudVersion++
 
-                    val message = if (floorY != null) "Floor found; object isolated." else "Searching for the floor…"
+                    // Measure only once the floor is known: without it we cannot separate the object
+                    // from the ground, so height and footprint would both be meaningless.
+                    var measurement: Measurement? = null
+                    val message: String
+                    if (floorY != null) {
+                        val box = BoundingBox.compute(buffer, cloudPointCount, floorY, MIN_BOX_POINTS)
+                        if (box != null) {
+                            measurement = stabilizer.update(
+                                box = box,
+                                frameConfidencePercent = stats.averageConfidencePercent,
+                                cameraX = cameraPoseMatrix[12],
+                                cameraZ = cameraPoseMatrix[14],
+                                nowMs = System.currentTimeMillis(),
+                            )
+                            message = if (measurement.stable) "Measurement stable." else "Measuring… move around the object."
+                        } else {
+                            message = "Point at the object — too few depth points yet."
+                        }
+                    } else {
+                        stabilizer.reset()
+                        message = "Searching for the floor… aim at the ground near the object."
+                    }
+
                     _uiState.value = DepthUiState(
-                        DepthStatus.OK, message, stats, cloudPointCount, floorFound = floorY != null,
+                        DepthStatus.OK, message, stats, cloudPointCount,
+                        floorFound = floorY != null, measurement = measurement,
                     )
                 }
             }
@@ -198,5 +227,6 @@ class DepthViewModel : ViewModel() {
         const val MAX_METERS = 5.0f
         const val MIN_HEIGHT_ABOVE_FLOOR = 0.03f // 3 cm, to drop the floor itself and its noise
         const val OBJECT_RADIUS = 0.6f // metres kept around the nearest point (the target object)
+        const val MIN_BOX_POINTS = 40 // below this the object is too sparsely seen to measure
     }
 }

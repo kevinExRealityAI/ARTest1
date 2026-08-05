@@ -119,6 +119,12 @@ class MainActivity : AppCompatActivity() {
         val header = "[${state.status}] ${state.message}"
         val stats = state.stats ?: return header
         return buildString {
+            state.measurement?.let { m ->
+                appendLine("L ${m.lengthCm} cm   W ${m.widthCm} cm   H ${m.heightCm} cm")
+                appendLine("confidence: ${m.confidence}   coverage: ${m.coveragePercent}%")
+                appendLine(if (m.stable) "— stable —" else "— measuring… —")
+                appendLine("————————————————————————")
+            }
             appendLine(header)
             appendLine("depth image     : ${stats.depthWidth} x ${stats.depthHeight}")
             appendLine("confidence image: ${stats.confidenceWidth} x ${stats.confidenceHeight}")
